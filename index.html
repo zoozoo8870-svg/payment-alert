@@ -90,6 +90,40 @@
   .err{color:var(--rose-ink);font-weight:600}
   footer{color:var(--muted);font-size:12.5px;text-align:center;padding:6px 20px 34px}
 
+  /* ---------- Progress ---------- */
+  .prog-top{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .prog-big{font:600 26px "Prompt",sans-serif;color:var(--sky-700)}
+  .prog-big small{font-size:14px;color:var(--muted);font-weight:500}
+  .prog-pct{font:600 30px "Prompt",sans-serif;color:var(--sky-800)}
+  .bar{height:22px;border-radius:999px;background:var(--sky-100);overflow:hidden;border:1px solid var(--sky-200)}
+  .bar > i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--sky-300),var(--sky-600));transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+  .prog-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:13px}
+  .dotc{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  /* ---------- Monthly chart ---------- */
+  .chart{display:flex;justify-content:center;align-items:flex-end;gap:22px;height:250px;padding:10px 6px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+  .col{flex:1;min-width:80px;max-width:150px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end}
+  .col .val{font:600 13px "Prompt",sans-serif;color:var(--sky-800);margin-bottom:6px;white-space:nowrap}
+  .stack{width:62%;display:flex;flex-direction:column-reverse;border-radius:10px 10px 0 0;overflow:hidden;height:0;transition:height 1s cubic-bezier(.2,.8,.2,1)}
+  .stack .paid{background:var(--sky-600)} .stack .out{background:var(--sky-300)}
+  .stack > div{transition:background .2s} .col:hover .stack .out{background:var(--sky-400)}
+  .labels{display:flex;justify-content:center;gap:22px;padding:8px 6px 0;overflow-x:auto}
+  .labels > div{flex:1;min-width:80px;max-width:150px;text-align:center;font:500 13px "Prompt",sans-serif;color:var(--ink)}
+  .labels small{display:block;color:var(--muted);font:400 12px "Sarabun",sans-serif}
+
+  /* ---------- Search & filters ---------- */
+  .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .search{flex:1;min-width:220px;position:relative}
+  .search input{width:100%;padding:11px 14px 11px 40px;border-radius:12px;border:1px solid var(--sky-200);background:var(--sky-50);font:15px "Sarabun",sans-serif;color:var(--ink);outline:none}
+  .search input:focus{border-color:var(--sky-400);background:#fff;box-shadow:0 0 0 4px rgba(127,185,236,.2)}
+  .search::before{content:"🔍";position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px}
+  .fchip{border:1px solid var(--sky-200);background:#fff;color:var(--sky-800);padding:8px 14px;border-radius:999px;font:500 13px "Prompt",sans-serif;cursor:pointer}
+  .fchip:hover{background:var(--sky-50)}
+  .fchip.on{background:var(--sky-600);border-color:var(--sky-600);color:#fff}
+  .fchip .c{opacity:.75;margin-left:4px}
+  .empty-row td{text-align:center;color:var(--muted);padding:22px}
+  mark{background:#fff2a8;border-radius:3px;padding:0 1px}
+
   /* ---------- Popup ---------- */
   .overlay{position:fixed;inset:0;background:rgba(30,53,80,.28);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow-y:auto}
   .overlay.show{display:flex;animation:fade .25s ease}
@@ -136,8 +170,25 @@
   </div>
 
   <div class="section">
+    <h2>💹 ความคืบหน้าการรับชำระ</h2>
+    <div class="hint">เทียบยอดที่ลูกค้าชำระแล้ว (PAID AMOUNT) กับยอดทั้งหมด (NET PAYMENT)</div>
+    <div id="progress"></div>
+  </div>
+
+  <div class="section">
+    <h2>📊 ยอดครบกำหนดชำระแยกตามเดือน</h2>
+    <div class="hint">นับตามเดือนของ DUE DATE · <span class="dotc" style="background:var(--sky-600)"></span>ชำระแล้ว &nbsp; <span class="dotc" style="background:var(--sky-300)"></span>ยังค้างชำระ</div>
+    <div class="chart" id="chart"></div>
+    <div class="labels" id="chartLabels"></div>
+  </div>
+
+  <div class="section">
     <h2>📋 รายการ Order ทั้งหมด</h2>
-    <div class="hint">เรียงตาม DUE DATE ที่ใกล้ที่สุดก่อน</div>
+    <div class="hint">เรียงตาม DUE DATE ที่ใกล้ที่สุดก่อน · ค้นหาด้วย ORDER NO., INVOICE NO., B/L NO., CONTAINER NO. หรือ AGENT</div>
+    <div class="filters">
+      <div class="search"><input id="q" type="search" placeholder="พิมพ์เพื่อค้นหา เช่น TCC857, 510079338, THD1588942" autocomplete="off"></div>
+      <div id="fchips"></div>
+    </div>
     <div class="tablewrap"><table id="tbl"></table></div>
   </div>
 
@@ -333,16 +384,100 @@ function render(orders, srcName, showPopup){
     norm:`<span class="badge b-norm">อีก ${o.days} วัน</span>`,
     nodate:`<span class="badge b-norm">ไม่มี DUE DATE</span>`,
   })[o.st];
-  const sorted = [...orders].sort((a,b)=>(a.due?dayNum(a.due):1e9)-(b.due?dayNum(b.due):1e9));
-  document.getElementById("tbl").innerHTML =
-    `<thead><tr><th>สถานะ</th><th>ORDER NO.</th><th>INVOICE NO.</th><th>B/L NO.</th><th>AGENT</th><th>CONTAINER NO.</th>
-      <th>ยอดเงิน (US$)</th><th>PAID AMOUNT</th><th>ETD</th><th>ETA</th><th>DUE DATE</th></tr></thead><tbody>` +
-    sorted.map(o=>`<tr class="r-${o.st}"><td>${badge(o)}</td><td><b>${esc(o.order)}</b></td><td>${esc(o.invoice)}</td><td>${esc(o.bl)}</td>
-      <td>${esc(o.agent)}</td><td>${esc(o.cont)}</td><td class="num">${fmtMoney(o.net)}</td><td class="num">${fmtMoney(o.paid)}</td>
-      <td>${fmtDate(o.etd)}</td><td>${fmtDate(o.eta)}</td><td><b>${fmtDate(o.due)}</b></td></tr>`).join("") + "</tbody>";
+  allOrders = [...orders].sort((a,b)=>(a.due?dayNum(a.due):1e9)-(b.due?dayNum(b.due):1e9));
+  tableBadge = badge;
+  renderProgress(orders);
+  renderChart(orders);
+  renderChips();
+  renderTable();
 
   if (showPopup && currentAlerts.length && !isSnoozed()) openPopup();
 }
+
+// ---------- ความคืบหน้าการรับชำระ ----------
+const paidPart = o => Math.min(Math.max(o.paid||0,0), o.net||0);
+function renderProgress(orders){
+  const total = orders.reduce((s,o)=>s+(o.net||0),0);
+  const paid = orders.reduce((s,o)=>s+paidPart(o),0);
+  const pct = total ? paid/total*100 : 0;
+  const nPaid = orders.filter(o=>o.st==="paid").length;
+  document.getElementById("progress").innerHTML = `
+    <div class="prog-top">
+      <div class="prog-big">US$ ${fmtMoney(paid)} <small>จาก US$ ${fmtMoney(total)}</small></div>
+      <div class="prog-pct">${pct.toFixed(1)}%</div>
+    </div>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="prog-legend">
+      <span><span class="dotc" style="background:var(--sky-600)"></span>ชำระแล้ว ${nPaid} จาก ${orders.length} Order</span>
+      <span><span class="dotc" style="background:var(--sky-200)"></span>ยังค้างชำระ US$ ${fmtMoney(total-paid)}</span>
+    </div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ document.getElementById("barFill").style.width = Math.min(pct,100)+"%"; }));
+}
+
+// ---------- กราฟยอดครบกำหนดรายเดือน ----------
+function renderChart(orders){
+  const byM = {};
+  orders.filter(o=>o.due).forEach(o=>{
+    const k = o.due.y*100 + o.due.m;
+    const g = byM[k] = byM[k] || {y:o.due.y, m:o.due.m, paid:0, out:0, n:0};
+    g.paid += paidPart(o); g.out += Math.max((o.net||0)-paidPart(o),0); g.n++;
+  });
+  const months = Object.keys(byM).sort().map(k=>byM[k]);
+  const chart = document.getElementById("chart"), labels = document.getElementById("chartLabels");
+  if (!months.length){ chart.innerHTML = `<div class="hint">ไม่มีข้อมูล DUE DATE</div>`; labels.innerHTML=""; return; }
+  const max = Math.max(...months.map(g=>g.paid+g.out)) || 1;
+  chart.innerHTML = months.map((g,i)=>{
+    const t = g.paid+g.out, h = t/max*82;   // % ของความสูงกราฟ (เผื่อที่ให้ตัวเลขด้านบน)
+    return `<div class="col" title="ชำระแล้ว US$ ${fmtMoney(g.paid)} · ค้าง US$ ${fmtMoney(g.out)}">
+      <div class="val">US$ ${fmtMoney(t)}</div>
+      <div class="stack" data-h="${h}">
+        ${g.paid?`<div class="paid" style="height:${g.paid/t*100}%"></div>`:""}
+        ${g.out?`<div class="out" style="height:${g.out/t*100}%"></div>`:""}
+      </div></div>`;
+  }).join("");
+  labels.innerHTML = months.map(g=>`<div>${MONTHS[g.m-1]} ${g.y}<small>${g.n} Order${g.out?` · ค้าง ${fmtMoney(g.out)}`:" · ชำระครบ"}</small></div>`).join("");
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    chart.querySelectorAll(".stack").forEach(el=>el.style.height = el.dataset.h+"%");
+  }));
+}
+
+// ---------- ค้นหา / กรองสถานะ ----------
+let allOrders = [], tableBadge = null, fState = "all";
+const FILTERS = [
+  ["all","ทั้งหมด", o=>true],
+  ["alert","ใกล้ครบ / เลยกำหนด", o=>o.st==="warn"||o.st==="late"],
+  ["open","ยังไม่ชำระ", o=>o.st!=="paid"],
+  ["paid","ชำระแล้ว", o=>o.st==="paid"],
+];
+function renderChips(){
+  document.getElementById("fchips").innerHTML = FILTERS.map(([k,l,f])=>
+    `<button class="fchip ${fState===k?"on":""}" data-k="${k}">${l}<span class="c">${allOrders.filter(f).length}</span></button>`).join(" ");
+}
+function hl(text, q){
+  const t = esc(text||"");
+  if (!q) return t;
+  const i = String(text||"").toLowerCase().indexOf(q);
+  if (i<0) return t;
+  const raw = String(text);
+  return esc(raw.slice(0,i)) + "<mark>" + esc(raw.slice(i,i+q.length)) + "</mark>" + esc(raw.slice(i+q.length));
+}
+function renderTable(){
+  const q = (document.getElementById("q").value||"").trim().toLowerCase();
+  const f = FILTERS.find(x=>x[0]===fState)[2];
+  const rows = allOrders.filter(f).filter(o=>!q || [o.order,o.invoice,o.bl,o.cont,o.agent].some(v=>String(v||"").toLowerCase().includes(q)));
+  document.getElementById("tbl").innerHTML =
+    `<thead><tr><th>สถานะ</th><th>ORDER NO.</th><th>INVOICE NO.</th><th>B/L NO.</th><th>AGENT</th><th>CONTAINER NO.</th>
+      <th>ยอดเงิน (US$)</th><th>PAID AMOUNT</th><th>ETD</th><th>ETA</th><th>DUE DATE</th></tr></thead><tbody>` +
+    (rows.length ? rows.map(o=>`<tr class="r-${o.st}"><td>${tableBadge(o)}</td><td><b>${hl(o.order,q)}</b></td><td>${hl(o.invoice,q)}</td><td>${hl(o.bl,q)}</td>
+      <td>${hl(o.agent,q)}</td><td>${hl(o.cont,q)}</td><td class="num">${fmtMoney(o.net)}</td><td class="num">${fmtMoney(o.paid)}</td>
+      <td>${fmtDate(o.etd)}</td><td>${fmtDate(o.eta)}</td><td><b>${fmtDate(o.due)}</b></td></tr>`).join("")
+      : `<tr class="empty-row"><td colspan="11">ไม่พบรายการที่ค้นหา</td></tr>`) + "</tbody>";
+}
+document.getElementById("q").addEventListener("input", renderTable);
+document.getElementById("fchips").addEventListener("click", e=>{
+  const b = e.target.closest(".fchip"); if (!b) return;
+  fState = b.dataset.k; renderChips(); renderTable();
+});
 
 function loadWorkbook(buf, name, showPopup, isCsv){
   const wb = isCsv ? XLSX.read(buf, {type:"string", raw:true}) : XLSX.read(buf, {type:"array"});
