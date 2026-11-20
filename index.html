@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Payment – แจ้งเตือน DUE DATE</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --ink:#1d2330; --muted:#6b7385; --line:#e3e6ec;
+    --warn:#b45309; --warn-bg:#fff4e0; --warn-line:#f5c77e;
+    --late:#b42318; --late-bg:#fdecea; --late-line:#f3a9a2;
+    --ok:#1a7f4b; --ok-bg:#e8f6ee; --accent:#1f4e8c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Sarabun","Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+  header{background:var(--accent);color:#fff;padding:18px 24px}
+  header h1{margin:0;font-size:20px}
+  header .sub{opacity:.85;font-size:13px;margin-top:4px}
+  main{max-width:1250px;margin:0 auto;padding:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px}
+  h2{font-size:17px;margin:0 0 12px}
+  .alert{border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid}
+  .alert.warn{background:var(--warn-bg);border-color:var(--warn-line)}
+  .alert.late{background:var(--late-bg);border-color:var(--late-line)}
+  .alert .head{font-weight:700;margin-bottom:6px}
+  .alert.warn .head{color:var(--warn)} .alert.late .head{color:var(--late)}
+  .alert ul{margin:0;padding-left:20px}
+  .alert li{margin:3px 0}
+  .none{color:var(--ok);background:var(--ok-bg);border-radius:10px;padding:14px 16px}
+  .stats{display:flex;gap:12px;flex-wrap:wrap}
+  .stat{flex:1;min-width:160px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .stat .n{font-size:22px;font-weight:700}
+  .stat .l{color:var(--muted);font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{background:#eef1f6;font-weight:600;position:sticky;top:0}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tablewrap{overflow-x:auto}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .b-warn{background:var(--warn-bg);color:var(--warn)}
+  .b-late{background:var(--late-bg);color:var(--late)}
+  .b-ok{background:var(--ok-bg);color:var(--ok)}
+  .b-norm{background:#eef1f6;color:var(--muted)}
+  tr.r-warn td{background:#fffaf0} tr.r-late td{background:#fff6f5}
+  .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
+  .err{color:var(--late);font-weight:600}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 30px}
+</style>
+</head>
+<body>
+<header>
+  <h1>CUSTOMER PAYMENT – แจ้งเตือนก่อนครบกำหนดชำระ (DUE DATE) 5 วัน</h1>
+  <div class="sub" id="todayLine"></div>
+</header>
+<main>
+  <div class="card">
+    <h2>🔔 การแจ้งเตือน</h2>
+    <div id="alerts">กำลังโหลดข้อมูล…</div>
+  </div>
+
+  <div class="stats" id="stats" style="margin-bottom:18px"></div>
+
+  <div class="card">
+    <h2>รายการ Order ทั้งหมด</h2>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </div>
+
+  <div class="card tools">
+    <span>ไฟล์ข้อมูล: <b id="srcName">data.xlsx</b></span>
+    <span>|</span>
+    <label>เปิดไฟล์ Excel อื่นเพื่อดูชั่วคราว: <input type="file" id="pick" accept=".xlsx,.xls"></label>
+    <span id="loadErr" class="err"></span>
+  </div>
+</main>
+<footer>เว็บนี้คำนวณจากวันที่ในเครื่องที่เปิดดู · แจ้งเตือนเมื่อเหลือ ≤ 5 วันก่อน DUE DATE และยังชำระไม่ครบ</footer>
+
+<script>
+const DATA_FILE = "data.xlsx";   // ชื่อไฟล์ Excel ใน GitHub
+const ALERT_DAYS = 5;            // แจ้งเตือนล่วงหน้ากี่วัน
+
+const MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const clean = v => (v==null ? "" : String(v)).replace(/[‪-‮​-‏]/g,"").replace(/\s+/g," ").trim();
+const fmtMoney = n => (n==null||isNaN(n)) ? "" : Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtDate = d => d ? `${d.d} ${MONTHS[d.m-1]} ${d.y}` : "";
+const dayNum = d => Date.UTC(d.y,d.m-1,d.d)/864e5;
+
+// แปลงค่าจาก Excel เป็นวันที่ {y,m,d}
+function toDate(v){
+  if (v==null || v==="") return null;
+  if (typeof v === "number"){            // Excel serial
+    const dt = new Date(Math.round((v-25569)*864e5));
+    return {y:dt.getUTCFullYear(), m:dt.getUTCMonth()+1, d:dt.getUTCDate()};
+  }
+  const s = clean(v); let m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return {y:+m[1],m:+m[2],d:+m[3]};
+  if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/))) return {y:+m[3],m:+m[2],d:+m[1]};
+  return null;
+}
+const toNum = v => { if (v==null||v==="") return null; const n = typeof v==="number"?v:parseFloat(clean(v).replace(/,/g,"")); return isNaN(n)?null:n; };
+
+// หาคอลัมน์จากหัวตาราง
+const COLS = {
+  order:   h => h.includes("ORDER"),
+  agent:   h => h.startsWith("AGENT"),
+  cont:    h => h.includes("CONTAINER NO"),
+  bl:      h => h.includes("B/L"),
+  booking: h => h.includes("BOOKING"),
+  invoice: h => h.includes("INVOICE"),
+  net:     h => h.includes("NET PAYMENT"),
+  amount:  h => h.startsWith("PAYMENT AMOUNT"),
+  paid:    h => h.startsWith("PAID AMOUNT"),
+  load:    h => h === "LOAD" || h.startsWith("LOAD "),
+  etd:     h => h.includes("ETD"),
+  eta:     h => h.startsWith("ETA"),
+  due:     h => h.includes("DUE DATE"),
+};
+
+// aoa = แถวของชีต (array of arrays), merges = ช่วงเซลล์ที่ผสาน
+function parseSheet(aoa, merges){
+  // เติมค่าในเซลล์ที่ผสาน ให้ทุกแถวในกลุ่มได้ค่าเดียวกัน
+  (merges||[]).forEach(mg=>{
+    const v = (aoa[mg.s.r]||[])[mg.s.c];
+    for (let r=mg.s.r; r<=mg.e.r; r++){
+      aoa[r] = aoa[r] || [];
+      for (let c=mg.s.c; c<=mg.e.c; c++) if (aoa[r][c]==null || aoa[r][c]==="") aoa[r][c] = v;
+    }
+  });
+  const hr = aoa.findIndex(row => (row||[]).some(c => clean(c).toUpperCase().startsWith("ORDER")));
+  if (hr < 0) throw new Error("ไม่พบหัวคอลัมน์ ORDER NO. ในไฟล์");
+  const heads = aoa[hr].map(h => clean(h).toUpperCase());
+  const idx = {};
+  for (const k in COLS) idx[k] = heads.findIndex(h => h && COLS[k](h));
+  if (idx.due < 0) throw new Error("ไม่พบคอลัมน์ DUE DATE ในไฟล์");
+  const get = (row,k) => idx[k] >= 0 ? row[idx[k]] : null;
+
+  const out = [];
+  for (let r=hr+1; r<aoa.length; r++){
+    const row = aoa[r] || [];
+    const order = clean(get(row,"order"));
+    if (!order || /TOTAL/i.test(order)) continue;
+    const net = toNum(get(row,"net")) ?? toNum(get(row,"amount"));
+    const eta = toDate(get(row,"eta"));
+    // ถ้า DUE DATE ว่าง (เช่น สูตรยังไม่ได้คำนวณ) ให้ใช้ ETA + 30 วัน
+    let due = toDate(get(row,"due"));
+    if (!due && eta){ const d = new Date(Date.UTC(eta.y,eta.m-1,eta.d+30)); due = {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate()}; }
+    out.push({
+      order, agent:clean(get(row,"agent")), cont:clean(get(row,"cont")),
+      bl:clean(get(row,"bl")) || clean(get(row,"booking")),
+      invoice:clean(get(row,"invoice")), net, paid:toNum(get(row,"paid")),
+      etd:toDate(get(row,"etd")), eta, due,
+    });
+  }
+  return out;
+}
+
+function classify(o, today){
+  const paidFull = o.paid != null && o.net != null && o.paid >= o.net - 0.005;
+  if (paidFull) return {st:"paid", days:null};
+  if (!o.due) return {st:"nodate", days:null};
+  const days = dayNum(o.due) - dayNum(today);
+  if (days < 0) return {st:"late", days};
+  if (days <= ALERT_DAYS) return {st:"warn", days};
+  return {st:"norm", days};
+}
+
+function render(orders, srcName){
+  const now = new Date();
+  const today = {y:now.getFullYear(), m:now.getMonth()+1, d:now.getDate()};
+  document.getElementById("todayLine").textContent = "วันนี้: " + fmtDate(today);
+  document.getElementById("srcName").textContent = srcName;
+  orders.forEach(o => Object.assign(o, classify(o, today)));
+
+  const warn = orders.filter(o=>o.st==="warn"), late = orders.filter(o=>o.st==="late");
+  const groupBlock = (list, cls, title) => {
+    const byDue = {};
+    list.forEach(o => (byDue[fmtDate(o.due)] = byDue[fmtDate(o.due)] || []).push(o));
+    return Object.values(byDue).sort((a,b)=>dayNum(a[0].due)-dayNum(b[0].due)).map(g=>{
+      const d = g[0].days, sum = g.reduce((s,o)=>s+(o.net||0)-(o.paid||0),0);
+      const when = cls==="late" ? `เลยกำหนดมาแล้ว ${-d} วัน` : (d===0 ? "ครบกำหนดวันนี้" : `อีก ${d} วันครบกำหนด`);
+      return `<div class="alert ${cls}">
+        <div class="head">${title} · DUE DATE ${fmtDate(g[0].due)} (${when}) · ยอดค้างชำระ US$ ${fmtMoney(sum)}</div>
+        <ul>${g.map(o=>`<li><b>ORDER NO. ${o.order}</b> — Invoice ${o.invoice||"-"} · B/L / Booking ${o.bl||"-"} · Container ${o.cont||"-"} · US$ ${fmtMoney((o.net||0)-(o.paid||0))}</li>`).join("")}</ul>
+      </div>`;
+    }).join("");
+  };
+  document.getElementById("alerts").innerHTML =
+    (late.length||warn.length)
+      ? groupBlock(late,"late","⛔ เลยกำหนดชำระ") + groupBlock(warn,"warn","⚠️ ใกล้ครบกำหนดชำระ")
+      : `<div class="none">✅ ไม่มี Order ที่จะครบกำหนดชำระภายใน ${ALERT_DAYS} วัน</div>`;
+  document.title = (late.length+warn.length ? `(${late.length+warn.length}) ` : "") + "Customer Payment – แจ้งเตือน DUE DATE";
+
+  const outstanding = orders.filter(o=>o.st!=="paid").reduce((s,o)=>s+(o.net||0)-(o.paid||0),0);
+  document.getElementById("stats").innerHTML = [
+    [orders.length,"Order ทั้งหมด"],
+    [warn.length,`ใกล้ครบกำหนด (≤ ${ALERT_DAYS} วัน)`],
+    [late.length,"เลยกำหนด"],
+    ["US$ "+fmtMoney(outstanding),"ยอดค้างชำระรวม"],
+  ].map(([n,l])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+
+  const badge = o => ({
+    warn:`<span class="badge b-warn">${o.days===0?"ครบกำหนดวันนี้":"อีก "+o.days+" วัน"}</span>`,
+    late:`<span class="badge b-late">เลยกำหนด ${-o.days} วัน</span>`,
+    paid:`<span class="badge b-ok">ชำระแล้ว</span>`,
+    norm:`<span class="badge b-norm">อีก ${o.days} วัน</span>`,
+    nodate:`<span class="badge b-norm">ไม่มี DUE DATE</span>`,
+  })[o.st];
+  const sorted = [...orders].sort((a,b)=>(a.due?dayNum(a.due):1e9)-(b.due?dayNum(b.due):1e9));
+  document.getElementById("tbl").innerHTML =
+    `<thead><tr><th>สถานะ</th><th>ORDER NO.</th><th>INVOICE NO.</th><th>AGENT</th><th>CONTAINER NO.</th><th>B/L / BOOKING NO.</th>
+      <th>NET PAYMENT (US$)</th><th>PAID AMOUNT</th><th>ETD</th><th>ETA</th><th>DUE DATE</th></tr></thead><tbody>` +
+    sorted.map(o=>`<tr class="r-${o.st}"><td>${badge(o)}</td><td><b>${o.order}</b></td><td>${o.invoice}</td><td>${o.agent}</td>
+      <td>${o.cont}</td><td>${o.bl}</td><td class="num">${fmtMoney(o.net)}</td><td class="num">${fmtMoney(o.paid)}</td>
+      <td>${fmtDate(o.etd)}</td><td>${fmtDate(o.eta)}</td><td><b>${fmtDate(o.due)}</b></td></tr>`).join("") + "</tbody>";
+}
+
+function loadWorkbook(buf, name){
+  const wb = XLSX.read(buf, {type:"array"});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null, blankrows:true});
+  // ปรับตำแหน่งเซลล์ผสานให้ตรงกับแถว/คอลัมน์ที่อ่านได้ (กรณีตารางไม่ได้เริ่มที่ A1)
+  const s = XLSX.utils.decode_range(ws["!ref"]).s;
+  const merges = (ws["!merges"]||[]).map(m=>({s:{r:m.s.r-s.r,c:m.s.c-s.c}, e:{r:m.e.r-s.r,c:m.e.c-s.c}}));
+  render(parseSheet(aoa, merges), name);
+  document.getElementById("loadErr").textContent = "";
+}
+function showErr(msg){
+  document.getElementById("loadErr").textContent = msg;
+  if (document.getElementById("alerts").textContent.startsWith("กำลังโหลด"))
+    document.getElementById("alerts").innerHTML = `<div class="err">${msg}</div>`;
+}
+
+if (typeof window !== "undefined" && typeof document !== "undefined"){
+  fetch(DATA_FILE + "?t=" + Date.now())
+    .then(r => { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
+    .then(buf => loadWorkbook(buf, DATA_FILE))
+    .catch(e => showErr(e.message || `โหลด ${DATA_FILE} ไม่ได้ — ใช้ปุ่ม "เปิดไฟล์ Excel" ด้านล่างแทนได้`));
+  document.getElementById("pick").addEventListener("change", ev=>{
+    const f = ev.target.files[0]; if(!f) return;
+    f.arrayBuffer().then(b=>{ try{ loadWorkbook(b, f.name); }catch(e){ showErr(e.message); } });
+  });
+}
+</script>
+</body>
+</html>
