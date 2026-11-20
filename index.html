@@ -4,83 +4,174 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Customer Payment – แจ้งเตือน DUE DATE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   :root{
-    --bg:#f5f6f8; --card:#fff; --ink:#1d2330; --muted:#6b7385; --line:#e3e6ec;
-    --warn:#b45309; --warn-bg:#fff4e0; --warn-line:#f5c77e;
-    --late:#b42318; --late-bg:#fdecea; --late-line:#f3a9a2;
-    --ok:#1a7f4b; --ok-bg:#e8f6ee; --accent:#1f4e8c;
+    --bg:#f3f8fd;
+    --sky-50:#f4f9ff; --sky-100:#e6f2fd; --sky-200:#cfe6fa; --sky-300:#a9d2f5; --sky-400:#7fb9ec;
+    --sky-600:#3b82c4; --sky-700:#2a659f; --sky-800:#1f4a75;
+    --ink:#1e3550; --muted:#6f8299; --line:#dde9f5; --card:#ffffff;
+    --rose-bg:#fdeef0; --rose-line:#f4c7cd; --rose-ink:#b23a4b;
+    --mint-bg:#e7f7f0; --mint-ink:#23855a;
+    --shadow:0 6px 22px rgba(59,130,196,.10);
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:"Sarabun","Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
-  header{background:var(--accent);color:#fff;padding:18px 24px}
-  header h1{margin:0;font-size:20px}
-  header .sub{opacity:.85;font-size:13px;margin-top:4px}
-  main{max-width:1250px;margin:0 auto;padding:20px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px}
-  h2{font-size:17px;margin:0 0 12px}
-  .alert{border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid}
-  .alert.warn{background:var(--warn-bg);border-color:var(--warn-line)}
-  .alert.late{background:var(--late-bg);border-color:var(--late-line)}
-  .alert .head{font-weight:700;margin-bottom:6px}
-  .alert.warn .head{color:var(--warn)} .alert.late .head{color:var(--late)}
-  .alert ul{margin:0;padding-left:20px}
-  .alert li{margin:3px 0}
-  .none{color:var(--ok);background:var(--ok-bg);border-radius:10px;padding:14px 16px}
-  .stats{display:flex;gap:12px;flex-wrap:wrap}
-  .stat{flex:1;min-width:160px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-  .stat .n{font-size:22px;font-weight:700}
+  body{margin:0;font-family:"Sarabun","Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+  h1,h2,.prompt{font-family:"Prompt","Sarabun",sans-serif}
+
+  /* ---------- Header ---------- */
+  header{background:linear-gradient(120deg,#dceefd 0%,#c4e1f8 55%,#d9ecfb 100%);border-bottom:1px solid var(--sky-200)}
+  .head-in{max-width:1200px;margin:0 auto;padding:22px 20px;display:flex;align-items:center;gap:16px}
+  .logo{width:48px;height:48px;border-radius:14px;background:#fff;display:grid;place-items:center;box-shadow:var(--shadow);font-size:24px;flex:none}
+  header h1{margin:0;font-size:21px;font-weight:600;color:var(--sky-800)}
+  header .sub{color:var(--sky-700);font-size:13.5px;margin-top:2px}
+  .bell{margin-left:auto;position:relative;border:0;background:#fff;color:var(--sky-700);width:46px;height:46px;border-radius:50%;font-size:21px;cursor:pointer;box-shadow:var(--shadow);flex:none}
+  .bell:hover{background:var(--sky-50)}
+  .bell .dot{position:absolute;top:-3px;right:-3px;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:var(--sky-600);color:#fff;font:600 12px/21px "Prompt",sans-serif;border:2px solid #fff;display:none}
+  .bell.has .dot{display:block}
+  .bell.has{animation:ring 2.4s ease-in-out 1s 2}
+  @keyframes ring{0%,100%{transform:rotate(0)}10%,30%{transform:rotate(-12deg)}20%,40%{transform:rotate(12deg)}50%{transform:rotate(0)}}
+
+  main{max-width:1200px;margin:0 auto;padding:22px 20px 10px}
+  .section{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:20px;box-shadow:var(--shadow)}
+  .section h2{margin:0 0 4px;font-size:18px;font-weight:600;color:var(--sky-800)}
+  .section .hint{color:var(--muted);font-size:13px;margin-bottom:16px}
+
+  /* ---------- Stats ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);display:flex;gap:12px;align-items:center}
+  .stat .ic{width:42px;height:42px;border-radius:12px;background:var(--sky-100);display:grid;place-items:center;font-size:19px;flex:none}
+  .stat .n{font:600 20px "Prompt",sans-serif;color:var(--sky-800);white-space:nowrap}
   .stat .l{color:var(--muted);font-size:13px}
+
+  /* ---------- Alert cards ---------- */
+  .alerts{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+  .acard{position:relative;border-radius:16px;background:linear-gradient(180deg,var(--sky-50),#fff 70%);border:1px solid var(--sky-200);padding:16px 18px 14px 22px;overflow:hidden}
+  .acard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:linear-gradient(180deg,var(--sky-300),var(--sky-400))}
+  .acard.late{background:linear-gradient(180deg,#fff6f7,#fff 70%);border-color:var(--rose-line)}
+  .acard.late::before{background:linear-gradient(180deg,#f5b8c0,#ec96a2)}
+  .acard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+  .acard .olab{font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+  .acard .ono{font:600 18px "Prompt",sans-serif;color:var(--sky-800)}
+  .chip{white-space:nowrap;padding:4px 12px;border-radius:999px;font:500 12.5px "Prompt",sans-serif;background:var(--sky-200);color:var(--sky-800)}
+  .chip.today{background:var(--sky-600);color:#fff}
+  .acard.late .chip{background:var(--rose-bg);color:var(--rose-ink);border:1px solid var(--rose-line)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+  .f .k{font-size:11.5px;color:var(--muted);letter-spacing:.03em}
+  .f .v{font-weight:600;font-size:15px;word-break:break-all}
+  .f.amt .v{font:600 19px "Prompt",sans-serif;color:var(--sky-700)}
+  .f.due .v{font:600 16px "Prompt",sans-serif}
+  .acard.late .f.amt .v{color:var(--rose-ink)}
+  .none{background:var(--mint-bg);color:var(--mint-ink);border-radius:14px;padding:18px;font-weight:600;text-align:center}
+
+  /* ---------- Table ---------- */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
   table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-  th{background:#eef1f6;font-weight:600;position:sticky;top:0}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{background:var(--sky-100);color:var(--sky-800);font:500 13px "Prompt",sans-serif;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:var(--sky-50)}
   td.num{text-align:right;font-variant-numeric:tabular-nums}
-  .tablewrap{overflow-x:auto}
-  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
-  .b-warn{background:var(--warn-bg);color:var(--warn)}
-  .b-late{background:var(--late-bg);color:var(--late)}
-  .b-ok{background:var(--ok-bg);color:var(--ok)}
-  .b-norm{background:#eef1f6;color:var(--muted)}
-  tr.r-warn td{background:#fffaf0} tr.r-late td{background:#fff6f5}
-  .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
-  .err{color:var(--late);font-weight:600}
-  footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 30px}
+  tr.r-warn td{background:#f1f8ff} tr.r-late td{background:#fff7f8}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .b-warn{background:var(--sky-200);color:var(--sky-800)}
+  .b-late{background:var(--rose-bg);color:var(--rose-ink)}
+  .b-ok{background:var(--mint-bg);color:var(--mint-ink)}
+  .b-norm{background:#eef3f8;color:var(--muted)}
+
+  .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13.5px}
+  .tools input[type=file]{font-size:13px}
+  .err{color:var(--rose-ink);font-weight:600}
+  footer{color:var(--muted);font-size:12.5px;text-align:center;padding:6px 20px 34px}
+
+  /* ---------- Popup ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(30,53,80,.28);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow-y:auto}
+  .overlay.show{display:flex;animation:fade .25s ease}
+  .pop{width:min(560px,100%);background:#fff;border-radius:22px;box-shadow:0 20px 50px rgba(31,74,117,.25);overflow:hidden;animation:up .3s ease}
+  .pop-h{background:linear-gradient(120deg,#d5eafc,#bcdcf7);padding:20px 22px;display:flex;gap:14px;align-items:center}
+  .pop-h .ic{width:46px;height:46px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:22px;flex:none}
+  .pop-h h3{margin:0;font:600 18px "Prompt",sans-serif;color:var(--sky-800)}
+  .pop-h p{margin:2px 0 0;color:var(--sky-700);font-size:13.5px}
+  .pop-b{padding:16px 18px;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+  .pop-b .acard{padding:14px 16px 12px 20px}
+  .pop-f{padding:14px 18px 18px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--line)}
+  .btn{border:0;border-radius:12px;padding:10px 20px;font:500 14px "Prompt",sans-serif;cursor:pointer}
+  .btn.pri{background:var(--sky-600);color:#fff} .btn.pri:hover{background:var(--sky-700)}
+  .btn.ghost{background:var(--sky-100);color:var(--sky-800)} .btn.ghost:hover{background:var(--sky-200)}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes up{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
+
+  @media (max-width:560px){
+    header h1{font-size:17px}
+    .alerts{grid-template-columns:1fr}
+    .fields{grid-template-columns:1fr 1fr}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>CUSTOMER PAYMENT – แจ้งเตือนก่อนครบกำหนดชำระ (DUE DATE) 5 วัน</h1>
-  <div class="sub" id="todayLine"></div>
+  <div class="head-in">
+    <div class="logo">💳</div>
+    <div>
+      <h1>CUSTOMER PAYMENT · แจ้งเตือน DUE DATE</h1>
+      <div class="sub" id="todayLine">กำลังโหลด…</div>
+    </div>
+    <button class="bell" id="bell" title="ดูการแจ้งเตือน" aria-label="ดูการแจ้งเตือน">🔔<span class="dot" id="bellCount"></span></button>
+  </div>
 </header>
+
 <main>
-  <div class="card">
+  <div class="stats" id="stats"></div>
+
+  <div class="section">
     <h2>🔔 การแจ้งเตือน</h2>
+    <div class="hint" id="alertHint">แจ้งเตือนเมื่อเหลือไม่เกิน 5 วันก่อน DUE DATE และยังชำระไม่ครบ</div>
     <div id="alerts">กำลังโหลดข้อมูล…</div>
   </div>
 
-  <div class="stats" id="stats" style="margin-bottom:18px"></div>
-
-  <div class="card">
-    <h2>รายการ Order ทั้งหมด</h2>
+  <div class="section">
+    <h2>📋 รายการ Order ทั้งหมด</h2>
+    <div class="hint">เรียงตาม DUE DATE ที่ใกล้ที่สุดก่อน</div>
     <div class="tablewrap"><table id="tbl"></table></div>
   </div>
 
-  <div class="card tools">
+  <div class="section tools">
     <span>ไฟล์ข้อมูล: <b id="srcName">data.xlsx</b></span>
-    <span>|</span>
+    <span>·</span>
     <label>เปิดไฟล์ Excel อื่นเพื่อดูชั่วคราว: <input type="file" id="pick" accept=".xlsx,.xls"></label>
     <span id="loadErr" class="err"></span>
   </div>
 </main>
-<footer>เว็บนี้คำนวณจากวันที่ในเครื่องที่เปิดดู · แจ้งเตือนเมื่อเหลือ ≤ 5 วันก่อน DUE DATE และยังชำระไม่ครบ</footer>
+<footer>คำนวณจากวันที่ของเครื่องที่เปิดดู · แจ้งเตือนเฉพาะบนหน้าเว็บนี้</footer>
+
+<!-- Popup แจ้งเตือนเมื่อเปิดเว็บ -->
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="popTitle">
+  <div class="pop">
+    <div class="pop-h">
+      <div class="ic">🔔</div>
+      <div>
+        <h3 id="popTitle">ใกล้ถึงกำหนดชำระเงิน</h3>
+        <p id="popSub"></p>
+      </div>
+    </div>
+    <div class="pop-b" id="popBody"></div>
+    <div class="pop-f">
+      <button class="btn ghost" id="popSnooze">ไม่ต้องแสดงอีกวันนี้</button>
+      <button class="btn pri" id="popClose">รับทราบ</button>
+    </div>
+  </div>
+</div>
 
 <script>
-const DATA_FILE = "data.xlsx";   // ชื่อไฟล์ Excel ใน GitHub
-const ALERT_DAYS = 5;            // แจ้งเตือนล่วงหน้ากี่วัน
+const DATA_FILE  = "data.xlsx";   // ชื่อไฟล์ Excel ใน GitHub
+const ALERT_DAYS = 5;             // แจ้งเตือนล่วงหน้ากี่วัน
 
 const MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 const clean = v => (v==null ? "" : String(v)).replace(/[‪-‮​-‏]/g,"").replace(/\s+/g," ").trim();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtMoney = n => (n==null||isNaN(n)) ? "" : Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtDate = d => d ? `${d.d} ${MONTHS[d.m-1]} ${d.y}` : "";
 const dayNum = d => Date.UTC(d.y,d.m-1,d.d)/864e5;
@@ -104,13 +195,12 @@ const COLS = {
   order:   h => h.includes("ORDER"),
   agent:   h => h.startsWith("AGENT"),
   cont:    h => h.includes("CONTAINER NO"),
-  bl:      h => h.includes("B/L"),
+  bl:      h => h.includes("B/L") || h.includes("BL NO") || h.includes("BILL OF LADING"),
   booking: h => h.includes("BOOKING"),
   invoice: h => h.includes("INVOICE"),
   net:     h => h.includes("NET PAYMENT"),
   amount:  h => h.startsWith("PAYMENT AMOUNT"),
   paid:    h => h.startsWith("PAID AMOUNT"),
-  load:    h => h === "LOAD" || h.startsWith("LOAD "),
   etd:     h => h.includes("ETD"),
   eta:     h => h.startsWith("ETA"),
   due:     h => h.includes("DUE DATE"),
@@ -138,7 +228,7 @@ function parseSheet(aoa, merges){
   for (let r=hr+1; r<aoa.length; r++){
     const row = aoa[r] || [];
     const order = clean(get(row,"order"));
-    if (!order || /TOTAL/i.test(order)) continue;
+    if (!order || /TOTAL/i.test(order) || /TOTAL/i.test(clean(get(row,"invoice")))) continue;
     const net = toNum(get(row,"net")) ?? toNum(get(row,"amount"));
     const eta = toDate(get(row,"eta"));
     // ถ้า DUE DATE ว่าง (เช่น สูตรยังไม่ได้คำนวณ) ให้ใช้ ETA + 30 วัน
@@ -146,7 +236,7 @@ function parseSheet(aoa, merges){
     if (!due && eta){ const d = new Date(Date.UTC(eta.y,eta.m-1,eta.d+30)); due = {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate()}; }
     out.push({
       order, agent:clean(get(row,"agent")), cont:clean(get(row,"cont")),
-      bl:clean(get(row,"bl")) || clean(get(row,"booking")),
+      bl:clean(get(row,"bl")) || clean(get(row,"booking")),   // ถ้าไม่มีคอลัมน์ B/L NO. ใช้ BOOKING NO.
       invoice:clean(get(row,"invoice")), net, paid:toNum(get(row,"paid")),
       etd:toDate(get(row,"etd")), eta, due,
     });
@@ -164,82 +254,124 @@ function classify(o, today){
   return {st:"norm", days};
 }
 
-function render(orders, srcName){
+const balance = o => (o.net||0) - (o.paid||0);
+const whenText = o => o.st==="late" ? `เลยกำหนด ${-o.days} วัน` : (o.days===0 ? "ครบกำหนดวันนี้" : `อีก ${o.days} วัน`);
+
+// กล่องแจ้งเตือน 1 Order
+function alertCard(o){
+  return `<div class="acard ${o.st}">
+    <div class="top">
+      <div><div class="olab">ORDER NO.</div><div class="ono">${esc(o.order)}</div></div>
+      <span class="chip ${o.days===0?"today":""}">${whenText(o)}</span>
+    </div>
+    <div class="fields">
+      <div class="f"><div class="k">INVOICE NO.</div><div class="v">${esc(o.invoice||"-")}</div></div>
+      <div class="f"><div class="k">B/L NO.</div><div class="v">${esc(o.bl||"-")}</div></div>
+      <div class="f amt"><div class="k">ยอดเงิน (US$)</div><div class="v">${fmtMoney(balance(o))}</div></div>
+      <div class="f due"><div class="k">DUE DATE</div><div class="v">${fmtDate(o.due)}</div></div>
+    </div>
+  </div>`;
+}
+
+let currentAlerts = [];
+const todayKey = () => { const n=new Date(); return `payalert-snooze-${n.getFullYear()}-${n.getMonth()+1}-${n.getDate()}`; };
+const isSnoozed = () => { try { return localStorage.getItem(todayKey())==="1"; } catch(e){ return false; } };
+
+function openPopup(){
+  if (!currentAlerts.length) return;
+  const late = currentAlerts.filter(o=>o.st==="late").length;
+  const total = currentAlerts.reduce((s,o)=>s+balance(o),0);
+  document.getElementById("popTitle").textContent = late ? "มีรายการใกล้ครบ / เลยกำหนดชำระ" : "ใกล้ถึงกำหนดชำระเงิน";
+  document.getElementById("popSub").textContent = `${currentAlerts.length} รายการ · ยอดรวม US$ ${fmtMoney(total)}`;
+  document.getElementById("popBody").innerHTML = currentAlerts.map(alertCard).join("");
+  document.getElementById("overlay").classList.add("show");
+}
+function closePopup(){ document.getElementById("overlay").classList.remove("show"); }
+
+function render(orders, srcName, showPopup){
   const now = new Date();
   const today = {y:now.getFullYear(), m:now.getMonth()+1, d:now.getDate()};
-  document.getElementById("todayLine").textContent = "วันนี้: " + fmtDate(today);
+  document.getElementById("todayLine").textContent = "วันนี้ " + fmtDate(today) + " · แจ้งเตือนล่วงหน้า " + ALERT_DAYS + " วันก่อน DUE DATE";
   document.getElementById("srcName").textContent = srcName;
+  document.getElementById("alertHint").textContent = `แจ้งเตือนเมื่อเหลือไม่เกิน ${ALERT_DAYS} วันก่อน DUE DATE และยังชำระไม่ครบ`;
   orders.forEach(o => Object.assign(o, classify(o, today)));
 
   const warn = orders.filter(o=>o.st==="warn"), late = orders.filter(o=>o.st==="late");
-  const groupBlock = (list, cls, title) => {
-    const byDue = {};
-    list.forEach(o => (byDue[fmtDate(o.due)] = byDue[fmtDate(o.due)] || []).push(o));
-    return Object.values(byDue).sort((a,b)=>dayNum(a[0].due)-dayNum(b[0].due)).map(g=>{
-      const d = g[0].days, sum = g.reduce((s,o)=>s+(o.net||0)-(o.paid||0),0);
-      const when = cls==="late" ? `เลยกำหนดมาแล้ว ${-d} วัน` : (d===0 ? "ครบกำหนดวันนี้" : `อีก ${d} วันครบกำหนด`);
-      return `<div class="alert ${cls}">
-        <div class="head">${title} · DUE DATE ${fmtDate(g[0].due)} (${when}) · ยอดค้างชำระ US$ ${fmtMoney(sum)}</div>
-        <ul>${g.map(o=>`<li><b>ORDER NO. ${o.order}</b> — Invoice ${o.invoice||"-"} · B/L / Booking ${o.bl||"-"} · Container ${o.cont||"-"} · US$ ${fmtMoney((o.net||0)-(o.paid||0))}</li>`).join("")}</ul>
-      </div>`;
-    }).join("");
-  };
-  document.getElementById("alerts").innerHTML =
-    (late.length||warn.length)
-      ? groupBlock(late,"late","⛔ เลยกำหนดชำระ") + groupBlock(warn,"warn","⚠️ ใกล้ครบกำหนดชำระ")
-      : `<div class="none">✅ ไม่มี Order ที่จะครบกำหนดชำระภายใน ${ALERT_DAYS} วัน</div>`;
-  document.title = (late.length+warn.length ? `(${late.length+warn.length}) ` : "") + "Customer Payment – แจ้งเตือน DUE DATE";
+  currentAlerts = [...late, ...warn].sort((a,b)=>a.days-b.days);
 
-  const outstanding = orders.filter(o=>o.st!=="paid").reduce((s,o)=>s+(o.net||0)-(o.paid||0),0);
+  document.getElementById("alerts").innerHTML = currentAlerts.length
+    ? `<div class="alerts">${currentAlerts.map(alertCard).join("")}</div>`
+    : `<div class="none">✅ ไม่มี Order ที่จะครบกำหนดชำระภายใน ${ALERT_DAYS} วัน</div>`;
+
+  const bell = document.getElementById("bell");
+  bell.classList.toggle("has", currentAlerts.length>0);
+  document.getElementById("bellCount").textContent = currentAlerts.length;
+  document.title = (currentAlerts.length ? `(${currentAlerts.length}) ` : "") + "Customer Payment – แจ้งเตือน DUE DATE";
+
+  const outstanding = orders.filter(o=>o.st!=="paid").reduce((s,o)=>s+balance(o),0);
+  const dueSoonSum = currentAlerts.reduce((s,o)=>s+balance(o),0);
   document.getElementById("stats").innerHTML = [
-    [orders.length,"Order ทั้งหมด"],
-    [warn.length,`ใกล้ครบกำหนด (≤ ${ALERT_DAYS} วัน)`],
-    [late.length,"เลยกำหนด"],
-    ["US$ "+fmtMoney(outstanding),"ยอดค้างชำระรวม"],
-  ].map(([n,l])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+    ["📦", orders.length, "Order ทั้งหมด"],
+    ["⏰", warn.length, `ใกล้ครบกำหนด (≤ ${ALERT_DAYS} วัน)`],
+    ["❗", late.length, "เลยกำหนดชำระ"],
+    ["💰", "US$ "+fmtMoney(dueSoonSum), "ยอดที่ต้องติดตาม"],
+    ["🧾", "US$ "+fmtMoney(outstanding), "ยอดค้างชำระรวม"],
+  ].map(([ic,n,l])=>`<div class="stat"><div class="ic">${ic}</div><div><div class="n">${n}</div><div class="l">${l}</div></div></div>`).join("");
 
   const badge = o => ({
-    warn:`<span class="badge b-warn">${o.days===0?"ครบกำหนดวันนี้":"อีก "+o.days+" วัน"}</span>`,
-    late:`<span class="badge b-late">เลยกำหนด ${-o.days} วัน</span>`,
+    warn:`<span class="badge b-warn">${whenText(o)}</span>`,
+    late:`<span class="badge b-late">${whenText(o)}</span>`,
     paid:`<span class="badge b-ok">ชำระแล้ว</span>`,
     norm:`<span class="badge b-norm">อีก ${o.days} วัน</span>`,
     nodate:`<span class="badge b-norm">ไม่มี DUE DATE</span>`,
   })[o.st];
   const sorted = [...orders].sort((a,b)=>(a.due?dayNum(a.due):1e9)-(b.due?dayNum(b.due):1e9));
   document.getElementById("tbl").innerHTML =
-    `<thead><tr><th>สถานะ</th><th>ORDER NO.</th><th>INVOICE NO.</th><th>AGENT</th><th>CONTAINER NO.</th><th>B/L / BOOKING NO.</th>
-      <th>NET PAYMENT (US$)</th><th>PAID AMOUNT</th><th>ETD</th><th>ETA</th><th>DUE DATE</th></tr></thead><tbody>` +
-    sorted.map(o=>`<tr class="r-${o.st}"><td>${badge(o)}</td><td><b>${o.order}</b></td><td>${o.invoice}</td><td>${o.agent}</td>
-      <td>${o.cont}</td><td>${o.bl}</td><td class="num">${fmtMoney(o.net)}</td><td class="num">${fmtMoney(o.paid)}</td>
+    `<thead><tr><th>สถานะ</th><th>ORDER NO.</th><th>INVOICE NO.</th><th>B/L NO.</th><th>AGENT</th><th>CONTAINER NO.</th>
+      <th>ยอดเงิน (US$)</th><th>PAID AMOUNT</th><th>ETD</th><th>ETA</th><th>DUE DATE</th></tr></thead><tbody>` +
+    sorted.map(o=>`<tr class="r-${o.st}"><td>${badge(o)}</td><td><b>${esc(o.order)}</b></td><td>${esc(o.invoice)}</td><td>${esc(o.bl)}</td>
+      <td>${esc(o.agent)}</td><td>${esc(o.cont)}</td><td class="num">${fmtMoney(o.net)}</td><td class="num">${fmtMoney(o.paid)}</td>
       <td>${fmtDate(o.etd)}</td><td>${fmtDate(o.eta)}</td><td><b>${fmtDate(o.due)}</b></td></tr>`).join("") + "</tbody>";
+
+  if (showPopup && currentAlerts.length && !isSnoozed()) openPopup();
 }
 
-function loadWorkbook(buf, name){
+function loadWorkbook(buf, name, showPopup){
   const wb = XLSX.read(buf, {type:"array"});
   const ws = wb.Sheets[wb.SheetNames[0]];
   const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null, blankrows:true});
   // ปรับตำแหน่งเซลล์ผสานให้ตรงกับแถว/คอลัมน์ที่อ่านได้ (กรณีตารางไม่ได้เริ่มที่ A1)
   const s = XLSX.utils.decode_range(ws["!ref"]).s;
   const merges = (ws["!merges"]||[]).map(m=>({s:{r:m.s.r-s.r,c:m.s.c-s.c}, e:{r:m.e.r-s.r,c:m.e.c-s.c}}));
-  render(parseSheet(aoa, merges), name);
+  render(parseSheet(aoa, merges), name, showPopup);
   document.getElementById("loadErr").textContent = "";
 }
 function showErr(msg){
   document.getElementById("loadErr").textContent = msg;
   if (document.getElementById("alerts").textContent.startsWith("กำลังโหลด"))
-    document.getElementById("alerts").innerHTML = `<div class="err">${msg}</div>`;
+    document.getElementById("alerts").innerHTML = `<div class="err">${esc(msg)}</div>`;
 }
 
-if (typeof window !== "undefined" && typeof document !== "undefined"){
-  fetch(DATA_FILE + "?t=" + Date.now())
-    .then(r => { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
-    .then(buf => loadWorkbook(buf, DATA_FILE))
-    .catch(e => showErr(e.message || `โหลด ${DATA_FILE} ไม่ได้ — ใช้ปุ่ม "เปิดไฟล์ Excel" ด้านล่างแทนได้`));
-  document.getElementById("pick").addEventListener("change", ev=>{
-    const f = ev.target.files[0]; if(!f) return;
-    f.arrayBuffer().then(b=>{ try{ loadWorkbook(b, f.name); }catch(e){ showErr(e.message); } });
-  });
-}
+document.getElementById("bell").addEventListener("click", ()=>{
+  if (currentAlerts.length) openPopup();
+  else document.getElementById("alerts").scrollIntoView({behavior:"smooth"});
+});
+document.getElementById("popClose").addEventListener("click", closePopup);
+document.getElementById("popSnooze").addEventListener("click", ()=>{
+  try { localStorage.setItem(todayKey(),"1"); } catch(e){}
+  closePopup();
+});
+document.getElementById("overlay").addEventListener("click", e=>{ if (e.target.id==="overlay") closePopup(); });
+document.addEventListener("keydown", e=>{ if (e.key==="Escape") closePopup(); });
+
+fetch(DATA_FILE + "?t=" + Date.now())
+  .then(r => { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
+  .then(buf => loadWorkbook(buf, DATA_FILE, true))
+  .catch(e => showErr(e.message || `โหลด ${DATA_FILE} ไม่ได้ — ใช้ปุ่ม "เปิดไฟล์ Excel" ด้านล่างแทนได้`));
+document.getElementById("pick").addEventListener("change", ev=>{
+  const f = ev.target.files[0]; if(!f) return;
+  f.arrayBuffer().then(b=>{ try{ loadWorkbook(b, f.name, true); }catch(e){ showErr(e.message); } });
+});
 </script>
 </body>
 </html>
