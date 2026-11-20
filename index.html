@@ -195,7 +195,8 @@ function toDate(v){
   if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/))) return {y:+m[3],m:+m[2],d:+m[1]};
   return null;
 }
-const toNum = v => { if (v==null||v==="") return null; const n = typeof v==="number"?v:parseFloat(clean(v).replace(/,/g,"")); return isNaN(n)?null:n; };
+// รองรับตัวเลขที่มีสัญลักษณ์เงิน/ลูกน้ำ เช่น "$20,863.39", "US$ 20,863.39", "(1,000.00)"
+const toNum = v => { if (v==null||v==="") return null; if (typeof v==="number") return v; let s = clean(v); const neg = /^\(.*\)$/.test(s) || s.includes("-"); s = s.replace(/[^0-9.]/g,""); if (!s) return null; const n = parseFloat(s); return isNaN(n)?null:(neg?-n:n); };
 
 // หาคอลัมน์จากหัวตาราง
 const COLS = {
