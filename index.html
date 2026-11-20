@@ -142,13 +142,14 @@
   </div>
 
   <div class="section tools">
-    <span>ไฟล์ข้อมูล: <b id="srcName">data.xlsx</b></span>
+    <span>ข้อมูลจาก: <b id="srcName">Google Sheet</b></span>
+    <a class="btn ghost" id="editSheet" target="_blank" rel="noopener" style="text-decoration:none">✏️ แก้ไขข้อมูลใน Google Sheet</a>
     <span>·</span>
     <label>เปิดไฟล์ Excel อื่นเพื่อดูชั่วคราว: <input type="file" id="pick" accept=".xlsx,.xls"></label>
     <span id="loadErr" class="err"></span>
   </div>
 </main>
-<footer>คำนวณจากวันที่ของเครื่องที่เปิดดู · แจ้งเตือนเฉพาะบนหน้าเว็บนี้</footer>
+<footer>คำนวณจากวันที่ของเครื่องที่เปิดดู · แจ้งเตือนเฉพาะบนหน้าเว็บนี้ · ข้อมูลใหม่ใน Google Sheet อาจใช้เวลาประมาณ 5 นาทีจึงขึ้นในเว็บ</footer>
 
 <!-- Popup แจ้งเตือนเมื่อเปิดเว็บ -->
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="popTitle">
@@ -169,7 +170,10 @@
 </div>
 
 <script>
-const DATA_FILE  = "data.xlsx";   // ชื่อไฟล์ Excel ใน GitHub
+// ข้อมูลหลัก: Google Sheet ที่เผยแพร่เป็น CSV (แก้ข้อมูลใน Sheet แล้วรีเฟรชเว็บ)
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpnBLHCrIvJmurbPU-F7-3VOEBZO7_DmFOi45_Dr4yCAtw8eZ5dxBfaHdpFvEeaRzKlRBmwqOS1OMF/pub?gid=1182443395&single=true&output=csv";
+const SHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1G9BIyhjG1xcFk_4iygkOczORBam8HeQ9VXQ8T3YJpTY/edit";
+const DATA_FILE  = "data.xlsx";   // สำรอง: ใช้เมื่อโหลด Google Sheet ไม่ได้
 const ALERT_DAYS = 5;             // แจ้งเตือนล่วงหน้ากี่วัน
 
 const MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -339,8 +343,8 @@ function render(orders, srcName, showPopup){
   if (showPopup && currentAlerts.length && !isSnoozed()) openPopup();
 }
 
-function loadWorkbook(buf, name, showPopup){
-  const wb = XLSX.read(buf, {type:"array"});
+function loadWorkbook(buf, name, showPopup, isCsv){
+  const wb = isCsv ? XLSX.read(buf, {type:"string", raw:true}) : XLSX.read(buf, {type:"array"});
   const ws = wb.Sheets[wb.SheetNames[0]];
   const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null, blankrows:true});
   // ปรับตำแหน่งเซลล์ผสานให้ตรงกับแถว/คอลัมน์ที่อ่านได้ (กรณีตารางไม่ได้เริ่มที่ A1)
@@ -359,6 +363,7 @@ document.getElementById("bell").addEventListener("click", ()=>{
   if (currentAlerts.length) openPopup();
   else document.getElementById("alerts").scrollIntoView({behavior:"smooth"});
 });
+document.getElementById("editSheet").href = SHEET_EDIT_URL;
 document.getElementById("popClose").addEventListener("click", closePopup);
 document.getElementById("popSnooze").addEventListener("click", ()=>{
   try { localStorage.setItem(todayKey(),"1"); } catch(e){}
@@ -367,10 +372,19 @@ document.getElementById("popSnooze").addEventListener("click", ()=>{
 document.getElementById("overlay").addEventListener("click", e=>{ if (e.target.id==="overlay") closePopup(); });
 document.addEventListener("keydown", e=>{ if (e.key==="Escape") closePopup(); });
 
-fetch(DATA_FILE + "?t=" + Date.now())
-  .then(r => { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
-  .then(buf => loadWorkbook(buf, DATA_FILE, true))
-  .catch(e => showErr(e.message || `โหลด ${DATA_FILE} ไม่ได้ — ใช้ปุ่ม "เปิดไฟล์ Excel" ด้านล่างแทนได้`));
+function loadExcelFallback(){
+  return fetch(DATA_FILE + "?t=" + Date.now())
+    .then(r => { if(!r.ok) throw new Error(); return r.arrayBuffer(); })
+    .then(buf => loadWorkbook(buf, DATA_FILE + " (สำรอง — โหลด Google Sheet ไม่ได้)", true))
+    .catch(e => showErr(e.message || `โหลดข้อมูลไม่ได้ — ใช้ปุ่ม "เปิดไฟล์ Excel" ด้านล่างแทนได้`));
+}
+fetch(SHEET_CSV_URL + "&t=" + Date.now())
+  .then(r => { if(!r.ok) throw new Error("sheet"); return r.text(); })
+  .then(txt => {
+    if (/^\s*<(!doctype|html)/i.test(txt)) throw new Error("sheet");   // ได้หน้าเว็บแทน CSV (ยังไม่เผยแพร่)
+    loadWorkbook(txt, "Google Sheet · CUSTOMER PAYMENT 2026", true, true);
+  })
+  .catch(err => { console.warn("Google Sheet:", err); loadExcelFallback(); });
 document.getElementById("pick").addEventListener("change", ev=>{
   const f = ev.target.files[0]; if(!f) return;
   f.arrayBuffer().then(b=>{ try{ loadWorkbook(b, f.name, true); }catch(e){ showErr(e.message); } });
