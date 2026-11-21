@@ -173,7 +173,7 @@
   }
 </style>
 </head>
-<body class="locked">
+<body>
 <!-- หน้า Login (Supabase · ลิงก์เข้าสู่ระบบทางอีเมล) -->
 <div class="login" id="login">
   <div class="login-card">
@@ -566,6 +566,8 @@ fetch(SHEET_CSV_URL + "&t=" + Date.now())
 }
 
 // ---------- Login ด้วย Supabase (ลิงก์ทางอีเมล) ----------
+// ต้องการให้ Login ก่อนเข้าเว็บไหม: false = ทุกคนที่มีลิงก์เข้าดูได้, true = ต้อง Login ด้วยอีเมล
+const LOGIN_REQUIRED = false;
 const SUPABASE_URL = "https://xbdndbcqsjaudpapfyhi.supabase.co";
 const SUPABASE_KEY = "sb_publishable_g6LfXo1bULT_cpah2mXEDg_2rUaGZsL";   // publishable key (ใช้ในหน้าเว็บได้)
 const ALLOWED_EMAILS = ["zoozoo8870@gmail.com"];                       // อีเมลที่เข้าใช้งานได้ (เพิ่มได้)
@@ -599,8 +601,14 @@ document.getElementById("loginForm").addEventListener("submit", async e=>{
   else loginMsg("ส่งลิงก์แล้ว ✉️ เปิดอีเมล " + email + " แล้วกดลิงก์เพื่อเข้าสู่ระบบ", "ok");
 });
 document.getElementById("logoutBtn").addEventListener("click", async ()=>{ await sb.auth.signOut(); location.reload(); });
-sb.auth.onAuthStateChange((_ev, session)=>{ setTimeout(()=>applySession(session), 0); });
-sb.auth.getSession().then(({data})=>applySession(data.session));
+if (LOGIN_REQUIRED){
+  document.body.classList.add("locked");
+  sb.auth.onAuthStateChange((_ev, session)=>{ setTimeout(()=>applySession(session), 0); });
+  sb.auth.getSession().then(({data})=>applySession(data.session));
+} else {
+  document.getElementById("userBox").style.display = "none";
+  started = true; loadData();
+}
 document.getElementById("pick").addEventListener("change", ev=>{
   const f = ev.target.files[0]; if(!f) return;
   f.arrayBuffer().then(b=>{ try{ loadWorkbook(b, f.name, true); }catch(e){ showErr(e.message); } });
