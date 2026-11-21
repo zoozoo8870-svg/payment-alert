@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#f3f8fd;
@@ -32,7 +33,7 @@
   .logo{width:52px;height:52px;border-radius:15px;box-shadow:var(--shadow);flex:none;display:block}
   header h1{margin:0;font-size:21px;font-weight:600;color:var(--sky-800)}
   header .sub{color:var(--sky-700);font-size:13.5px;margin-top:2px}
-  .bell{margin-left:auto;position:relative;border:0;background:#fff;color:var(--sky-700);width:46px;height:46px;border-radius:50%;font-size:21px;cursor:pointer;box-shadow:var(--shadow);flex:none}
+  .bell{position:relative;border:0;background:#fff;color:var(--sky-700);width:46px;height:46px;border-radius:50%;font-size:21px;cursor:pointer;box-shadow:var(--shadow);flex:none}
   .bell:hover{background:var(--sky-50)}
   .bell .dot{position:absolute;top:-3px;right:-3px;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:var(--sky-600);color:#fff;font:600 12px/21px "Prompt",sans-serif;border:2px solid #fff;display:none}
   .bell.has .dot{display:block}
@@ -125,6 +126,29 @@
   .empty-row td{text-align:center;color:var(--muted);padding:22px}
   mark{background:#fff2a8;border-radius:3px;padding:0 1px}
 
+  /* ---------- Login (Supabase) ---------- */
+  body.locked main, body.locked footer, body.locked header .bell, body.locked header .user{visibility:hidden}
+  .login{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:20px;
+         background:radial-gradient(circle at 20% 10%,#e3f1fe 0,transparent 45%),radial-gradient(circle at 85% 90%,#d3e8fb 0,transparent 45%),var(--bg)}
+  body.locked .login{display:flex}
+  .login-card{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 20px 50px rgba(31,74,117,.14);padding:30px 28px;text-align:center;animation:up .35s ease}
+  .login-card img{width:64px;height:64px;border-radius:18px;box-shadow:var(--shadow)}
+  .login-card h2{margin:14px 0 4px;font:600 20px "Prompt",sans-serif;color:var(--sky-800)}
+  .login-card p{margin:0 0 18px;color:var(--muted);font-size:14px}
+  .login-card input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--sky-200);background:var(--sky-50);font:15px "Sarabun",sans-serif;color:var(--ink);outline:none;margin-bottom:12px}
+  .login-card input:focus{border-color:var(--sky-400);background:#fff;box-shadow:0 0 0 4px rgba(127,185,236,.2)}
+  .login-card .btn{width:100%;padding:12px}
+  .login-card .btn:disabled{opacity:.6;cursor:default}
+  .login-msg{margin-top:14px;font-size:14px;border-radius:12px;padding:10px 12px;display:none}
+  .login-msg.ok{display:block;background:var(--mint-bg);color:var(--mint-ink)}
+  .login-msg.err{display:block;background:var(--rose-bg);color:var(--rose-ink)}
+  .login-foot{margin-top:16px;font-size:12px;color:var(--muted)}
+  .user{display:flex;align-items:center;gap:10px;margin-left:auto;font-size:13px;color:var(--sky-700)}
+  .user + .bell{margin-left:10px}
+  .user button{border:1px solid var(--sky-200);background:#fff;color:var(--sky-800);border-radius:999px;padding:7px 14px;font:500 13px "Prompt",sans-serif;cursor:pointer}
+  .user button:hover{background:var(--sky-50)}
+  @media (max-width:560px){ .user span{display:none} }
+
   /* ---------- Popup ---------- */
   .overlay{position:fixed;inset:0;background:rgba(30,53,80,.28);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow-y:auto}
   .overlay.show{display:flex;animation:fade .25s ease}
@@ -149,7 +173,22 @@
   }
 </style>
 </head>
-<body>
+<body class="locked">
+<!-- หน้า Login (Supabase · ลิงก์เข้าสู่ระบบทางอีเมล) -->
+<div class="login" id="login">
+  <div class="login-card">
+    <img src="logo.svg" alt="TCC">
+    <h2>เข้าสู่ระบบ</h2>
+    <p>Customer Payment · แจ้งเตือน DUE DATE</p>
+    <form id="loginForm">
+      <input type="email" id="loginEmail" placeholder="กรอกอีเมลของคุณ" autocomplete="email" required>
+      <button class="btn pri" id="loginBtn" type="submit">ส่งลิงก์เข้าสู่ระบบทางอีเมล</button>
+    </form>
+    <div class="login-msg" id="loginMsg"></div>
+    <div class="login-foot">ระบบจะส่งลิงก์ไปที่อีเมล กดลิงก์ในอีเมลเพื่อเข้าสู่ระบบ</div>
+  </div>
+</div>
+
 <header>
   <div class="head-in">
     <img class="logo" src="logo.svg" alt="TCC">
@@ -157,6 +196,7 @@
       <h1>CUSTOMER PAYMENT · แจ้งเตือน DUE DATE</h1>
       <div class="sub" id="todayLine">กำลังโหลด…</div>
     </div>
+    <div class="user" id="userBox"><span id="userEmail"></span><button id="logoutBtn" type="button">ออกจากระบบ</button></div>
     <button class="bell" id="bell" title="ดูการแจ้งเตือน" aria-label="ดูการแจ้งเตือน">🔔<span class="dot" id="bellCount"></span></button>
   </div>
 </header>
@@ -515,6 +555,7 @@ function loadExcelFallback(){
     .then(buf => loadWorkbook(buf, DATA_FILE + " (สำรอง — โหลด Google Sheet ไม่ได้)", true))
     .catch(e => showErr(e.message || `โหลดข้อมูลไม่ได้ — ใช้ปุ่ม "เปิดไฟล์ Excel" ด้านล่างแทนได้`));
 }
+function loadData(){
 fetch(SHEET_CSV_URL + "&t=" + Date.now())
   .then(r => { if(!r.ok) throw new Error("sheet"); return r.text(); })
   .then(txt => {
@@ -522,6 +563,44 @@ fetch(SHEET_CSV_URL + "&t=" + Date.now())
     loadWorkbook(txt, "Google Sheet · CUSTOMER PAYMENT 2026", true, true);
   })
   .catch(err => { console.warn("Google Sheet:", err); loadExcelFallback(); });
+}
+
+// ---------- Login ด้วย Supabase (ลิงก์ทางอีเมล) ----------
+const SUPABASE_URL = "https://xbdndbcqsjaudpapfyhi.supabase.co";
+const SUPABASE_KEY = "sb_publishable_g6LfXo1bULT_cpah2mXEDg_2rUaGZsL";   // publishable key (ใช้ในหน้าเว็บได้)
+const ALLOWED_EMAILS = ["zoozoo8870@gmail.com"];                       // อีเมลที่เข้าใช้งานได้ (เพิ่มได้)
+const isAllowed = e => ALLOWED_EMAILS.map(x=>x.toLowerCase()).includes(String(e||"").toLowerCase());
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let started = false;
+
+function loginMsg(text, kind){ const m = document.getElementById("loginMsg"); m.textContent = text; m.className = "login-msg " + (kind||""); }
+function showApp(session){
+  document.body.classList.remove("locked");
+  document.getElementById("userEmail").textContent = session.user.email;
+  if (!started){ started = true; loadData(); }
+}
+function showLogin(){
+  document.body.classList.add("locked");
+  closePopup();
+}
+async function applySession(session){
+  if (session && isAllowed(session.user.email)) return showApp(session);
+  if (session){ await sb.auth.signOut(); loginMsg("อีเมลนี้ไม่มีสิทธิ์เข้าใช้งาน", "err"); }
+  showLogin();
+}
+document.getElementById("loginForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const email = document.getElementById("loginEmail").value.trim();
+  if (!isAllowed(email)) return loginMsg("อีเมลนี้ไม่มีสิทธิ์เข้าใช้งาน", "err");
+  const btn = document.getElementById("loginBtn"); btn.disabled = true; btn.textContent = "กำลังส่ง…";
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin + location.pathname } });
+  btn.disabled = false; btn.textContent = "ส่งลิงก์เข้าสู่ระบบทางอีเมล";
+  if (error) loginMsg(/rate|seconds/i.test(error.message) ? "ส่งบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่" : "ส่งลิงก์ไม่สำเร็จ: " + error.message, "err");
+  else loginMsg("ส่งลิงก์แล้ว ✉️ เปิดอีเมล " + email + " แล้วกดลิงก์เพื่อเข้าสู่ระบบ", "ok");
+});
+document.getElementById("logoutBtn").addEventListener("click", async ()=>{ await sb.auth.signOut(); location.reload(); });
+sb.auth.onAuthStateChange((_ev, session)=>{ setTimeout(()=>applySession(session), 0); });
+sb.auth.getSession().then(({data})=>applySession(data.session));
 document.getElementById("pick").addEventListener("change", ev=>{
   const f = ev.target.files[0]; if(!f) return;
   f.arrayBuffer().then(b=>{ try{ loadWorkbook(b, f.name, true); }catch(e){ showErr(e.message); } });
